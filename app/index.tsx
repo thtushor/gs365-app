@@ -12,9 +12,11 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 export default function Index() {
+  const insets = useSafeAreaInsets();
   const webViewRef = useRef<WebView>(null);
   const canGoBack = useRef(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -112,32 +114,44 @@ export default function Index() {
 
       <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
         {isConnected ? (
-          <WebView
-            ref={webViewRef}
-            source={{ uri: "https://gamestar365.com" }}
-            javaScriptEnabled
-            domStorageEnabled
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-            startInLoadingState={false}
-            onLoadEnd={() => setIsWebViewReady(true)}
-            onNavigationStateChange={(navState) => {
-              canGoBack.current = navState.canGoBack;
-            }}
-            onShouldStartLoadWithRequest={(request) => {
-              // Always open all links inside the WebView itself
-              // (prevents opening in external browsers)
-              if (
-                request.url.startsWith("https") ||
-                request.url.startsWith("http")
-              ) {
-                return true; // allow WebView to handle it
-              }
-              return false; // block other custom schemes like mailto:, tel:, etc.
-            }}
-            originWhitelist={["*"]}
-            setSupportMultipleWindows={false}
-          />
+          <>
+            <WebView
+              ref={webViewRef}
+              source={{ uri: "https://gamestar365.com" }}
+              javaScriptEnabled
+              domStorageEnabled
+              allowsInlineMediaPlayback
+              mediaPlaybackRequiresUserAction={false}
+              startInLoadingState={false}
+              onLoadEnd={() => setIsWebViewReady(true)}
+              onNavigationStateChange={(navState) => {
+                canGoBack.current = navState.canGoBack;
+              }}
+              onShouldStartLoadWithRequest={(request) => {
+                // Always open all links inside the WebView itself
+                // (prevents opening in external browsers)
+                if (
+                  request.url.startsWith("https") ||
+                  request.url.startsWith("http")
+                ) {
+                  return true; // allow WebView to handle it
+                }
+                return false; // block other custom schemes like mailto:, tel:, etc.
+              }}
+              originWhitelist={["*"]}
+              setSupportMultipleWindows={false}
+              style={{ flex: 1, marginBottom: insets.bottom }}
+            />
+
+            {Platform.OS === "android" && (
+              <View
+                style={{
+                  height: insets.bottom || 20,
+                  backgroundColor: "#121212",
+                }}
+              />
+            )}
+          </>
         ) : (
           <View style={styles.offlineContainer}>
             <Image
