@@ -37,7 +37,7 @@ export default function Index() {
     };
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
-      onBackPress
+      onBackPress,
     );
     return () => backHandler.remove();
   }, []);
@@ -143,15 +143,6 @@ export default function Index() {
               style={{ flex: 1, marginBottom: insets.bottom }}
               automaticallyAdjustContentInsets={true}
             />
-
-            {Platform.OS === "android" && (
-              <View
-                style={{
-                  height: insets.bottom || 20,
-                  backgroundColor: "#121212",
-                }}
-              />
-            )}
           </>
         ) : (
           <View style={styles.offlineContainer}>
