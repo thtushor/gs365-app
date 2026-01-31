@@ -15,6 +15,34 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
+const INJECTED_JAVASCRIPT = `(function() {
+  // Fix viewport height on iOS (100vh issue)
+  const setViewport = () => {
+    const height = window.innerHeight;
+    document.documentElement.style.setProperty('--vh', height + 'px');
+    document.body.style.minHeight = height + 'px';
+  };
+  setViewport();
+  window.addEventListener('resize', setViewport);
+  window.addEventListener('orientationchange', () => setTimeout(setViewport, 100));
+
+  // iOS-specific: prevent zoom, bounce, and improve touch
+  const meta = document.querySelector('meta[name=viewport]');
+  if (meta) {
+    meta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+  } else {
+    const m = document.createElement('meta');
+    m.name = 'viewport';
+    m.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+    document.head.appendChild(m);
+  }
+
+  // Remove iOS rubber-band effect on body
+  document.body.style.position = 'fixed';
+  document.body.style.width = '100%';
+  document.body.style.overscrollBehaviorY = 'none';
+})();`;
+
 export default function Index() {
   const insets = useSafeAreaInsets();
   const webViewRef = useRef<WebView>(null);
@@ -26,84 +54,70 @@ export default function Index() {
   const [minTimePassed, setMinTimePassed] = useState(false);
   const [isSplashHidden, setIsSplashHidden] = useState(false);
 
-  // Back handler for Android
+  // Android hardware back button
   useEffect(() => {
-    const onBackPress = () => {
-      if (canGoBack.current && webViewRef.current) {
-        webViewRef.current.goBack();
-        return true;
-      }
-      return false;
-    };
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      onBackPress,
-    );
-    return () => backHandler.remove();
+    if (Platform.OS === "android") {
+      const onBackPress = () => {
+        if (canGoBack.current && webViewRef.current) {
+          webViewRef.current.goBack();
+          return true;
+        }
+        return false;
+      };
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress,
+      );
+      return () => subscription.remove();
+    }
   }, []);
 
-  // Internet connection check
+  // Network monitoring
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
       setIsConnected(state.isConnected ?? true);
     });
-    return () => unsubscribe();
+    return unsubscribe;
   }, []);
 
-  // Always wait at least 2 seconds before hiding splash
+  // Minimum splash time (you can increase to 2000–3000ms if you want longer branding)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMinTimePassed(true);
-    }, 1000);
+    const timer = setTimeout(() => setMinTimePassed(true), 1500);
     return () => clearTimeout(timer);
   }, []);
 
-  // Fade out splash only when both 2 seconds passed and webview loaded
+  // Hide splash with smooth fade
   const hideSplash = () => {
     Animated.timing(fadeAnim, {
       toValue: 0,
-      duration: 600,
+      duration: 500,
       useNativeDriver: true,
-    }).start(() => setIsSplashHidden(true)); // hides the splash completely after fade
+    }).start(() => setIsSplashHidden(true));
   };
 
-  // Check both conditions
   useEffect(() => {
     if (minTimePassed && isWebViewReady) {
       hideSplash();
     }
   }, [minTimePassed, isWebViewReady]);
 
-  // If 2 seconds passed but WebView not loaded, keep waiting
-  useEffect(() => {
-    if (minTimePassed && !isWebViewReady) {
-      const interval = setInterval(() => {
-        if (isWebViewReady) {
-          hideSplash();
-          clearInterval(interval);
-        }
-      }, 500);
-      return () => clearInterval(interval);
-    }
-  }, [minTimePassed, isWebViewReady]);
-
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View
-        style={{
-          height: Platform.OS === "android" ? StatusBar.currentHeight : 44,
-          backgroundColor: "#121212",
-        }}
-      />
+
+      {/* Status bar handling – perfect for both platforms */}
       <StatusBar
-        backgroundColor="#121212"
         barStyle="light-content"
+        backgroundColor="transparent"
         translucent
       />
+
       {/* Splash Screen */}
       {!isSplashHidden && (
-        <Animated.View style={[styles.splashContainer, { opacity: fadeAnim }]}>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.splashContainer, { opacity: fadeAnim }]}
+        >
           <Image
             source={require("./assets/splash.jpg")}
             style={styles.splashImage}
@@ -112,38 +126,38 @@ export default function Index() {
         </Animated.View>
       )}
 
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
+      <SafeAreaView style={styles.container}>
         {isConnected ? (
-          <>
-            <WebView
-              ref={webViewRef}
-              source={{ uri: "https://gamestar365.com" }}
-              javaScriptEnabled
-              domStorageEnabled
-              allowsInlineMediaPlayback
-              mediaPlaybackRequiresUserAction={false}
-              startInLoadingState={false}
-              onLoadEnd={() => setIsWebViewReady(true)}
-              onNavigationStateChange={(navState) => {
-                canGoBack.current = navState.canGoBack;
-              }}
-              onShouldStartLoadWithRequest={(request) => {
-                // Always open all links inside the WebView itself
-                // (prevents opening in external browsers)
-                if (
-                  request.url.startsWith("https") ||
-                  request.url.startsWith("http")
-                ) {
-                  return true; // allow WebView to handle it
-                }
-                return false; // block other custom schemes like mailto:, tel:, etc.
-              }}
-              originWhitelist={["*"]}
-              setSupportMultipleWindows={false}
-              style={{ flex: 1, marginBottom: insets.bottom }}
-              automaticallyAdjustContentInsets={true}
-            />
-          </>
+          <WebView
+            ref={webViewRef}
+            source={{ uri: "https://gamestar365.com" }}
+            javaScriptEnabled
+            domStorageEnabled
+            allowsInlineMediaPlayback
+            mediaPlaybackRequiresUserAction={false}
+            startInLoadingState={false}
+            scalesPageToFit={false} // Important for iOS
+            decelerationRate="normal"
+            allowsBackForwardNavigationGestures // iOS swipe to go back
+            overScrollMode="never" // Android equivalent
+            setBuiltInZoomControls={false}
+            setDisplayZoomControls={false}
+            directionalLockEnabled
+            injectedJavaScriptBeforeContentLoaded={INJECTED_JAVASCRIPT}
+            onLoadEnd={() => setIsWebViewReady(true)}
+            onNavigationStateChange={(navState) => {
+              canGoBack.current = navState.canGoBack;
+            }}
+            // Keep everything inside the WebView (block mailto/tel/etc.)
+            onShouldStartLoadWithRequest={(request) => {
+              const { url } = request;
+              if (url.startsWith("http://") || url.startsWith("https://")) {
+                return true;
+              }
+              return false;
+            }}
+            style={{ backgroundColor: "#121212" }}
+          />
         ) : (
           <View style={styles.offlineContainer}>
             <Image
@@ -165,10 +179,8 @@ const styles = StyleSheet.create({
   },
   splashContainer: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
     backgroundColor: "#121212",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 999,
   },
   splashImage: {
     width: "100%",
@@ -183,6 +195,6 @@ const styles = StyleSheet.create({
   offlineImage: {
     width: 120,
     height: 120,
-    marginBottom: 20,
+    marginBottom: 30,
   },
 });

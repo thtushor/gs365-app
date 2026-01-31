@@ -1,14 +1,29 @@
 {
   "cli": {
-    "version": ">= 5.0.0"
+    "version": ">= 12.0.0" // safe modern minimum
   },
   "build": {
-    "preview": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true // optional: for your own Mac testing without account
+      }
+    },
+    "preview": {
+      "distribution": "internal", // ← key for sideloading/internal sharing
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false // real device .ipa
       }
     },
     "production": {
+      "distribution": "internal", // or remove line if you ever want store later
       "android": {
         "buildType": "apk"
       }
