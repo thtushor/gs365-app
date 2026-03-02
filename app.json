@@ -2,7 +2,7 @@
   "expo": {
     "name": "GS365",
     "slug": "gs365",
-    "version": "1.0.1",
+    "version": "2.0.1",
     "cli": {
       "appVersionSource": "app.json"
     },
@@ -55,10 +55,10 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "mrkmark1615",
+    "owner": "expo-gs365",
     "extra": {
       "eas": {
-        "projectId": "15b7307a-f7e9-4a03-84fc-8abcaac2e7a9"
+        "projectId": "34ca14ed-4cfa-4d19-81a7-6dd50b933f12"
       }
     }
   }

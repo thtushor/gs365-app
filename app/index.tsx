@@ -147,7 +147,7 @@ export default function Index() {
         ) : (
           <View style={styles.offlineContainer}>
             <Image
-              source={require("./assets/connection.jpg")}
+              source={require("./assets/connection.png")}
               style={styles.offlineImage}
             />
             <ActivityIndicator size="large" color="#FFD700" />
